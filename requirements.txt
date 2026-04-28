@@ -1,5 +1,4 @@
 aiogram==3.6.0
 aiohttp==3.9.5
 python-dotenv
-aiosqlite
 asyncpg
