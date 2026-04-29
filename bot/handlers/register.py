@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.config import ADMIN_CHAT_ID, ADMIN_TOPIC_ID
+from bot.keyboards.main_menu import main_menu
 
 router = Router()
 
@@ -18,7 +19,7 @@ class Register(StatesGroup):
     photo = State()
 
 
-# 👤 ИМЯ
+# 👋 СТАРТ РЕГИСТРАЦИИ (вызывается после подписки)
 @router.message(Register.name)
 async def get_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
@@ -113,88 +114,21 @@ async def get_photo(message: types.Message, state: FSMContext):
     await message.answer_photo(photo=photo_id, caption=text, reply_markup=kb)
 
 
-# ❌ НЕ ФОТО
+# ❌ ЕСЛИ НЕ ФОТО
 @router.message(Register.photo)
 async def no_photo(message: types.Message):
     await message.answer("❌ Отправьте фото")
 
 
-# ✅ ПОДТВЕРЖДЕНИЕ
-@router.callback_query(F.data == "confirm")
-async def confirm(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    data = await state.get_data()
-    user = call.from_user
-
-    text = (
-        f"👤 Имя: {data['name']}\n"
-        f"🎂 Возраст: {data['age']}\n"
-        f"🌆 Город: {data['city']}\n"
-        f"⚧ Пол: {data['gender']}\n"
-        f"🔍 Ищу: {data['looking']}\n\n"
-        f"🆔 @{user.username or 'no_username'} | {user.id}"
-    )
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Настройки анкеты", callback_data="settings")]
-    ])
-
-    try:
-        await call.message.delete()
-    except:
-        pass
-
-    if data.get("photo"):
-        await call.message.answer_photo(
-            photo=data["photo"],
-            caption=text,
-            reply_markup=keyboard
-        )
-    else:
-        await call.message.answer(text, reply_markup=keyboard)
-
-    try:
-        if ADMIN_TOPIC_ID:
-            await bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                message_thread_id=ADMIN_TOPIC_ID,
-                text=text
-            )
-        else:
-            await bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=text
-            )
-    except Exception as e:
-        print("ADMIN LOG ERROR:", e)
-
-    await state.clear()
-
-
-# ⚙️ НАСТРОЙКИ
-@router.callback_query(F.data == "settings")
-async def settings(call: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_profile")],
-        [InlineKeyboardButton(text="❌ Удалить", callback_data="delete_profile")],
-        [InlineKeyboardButton(text="🔕 Отключить", callback_data="disable_profile")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_menu")]
-    ])
-
-    await call.message.edit_reply_markup(reply_markup=kb)
-
-
-# 🔙 НАЗАД
-@router.callback_query(F.data == "back_menu")
-async def back_menu(call: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Настройки анкеты", callback_data="settings")]
-    ])
-
-    await call.message.edit_reply_markup(reply_markup=kb)
-
-
-# ✏️ РЕДАКТИРОВАНИЕ (перезапуск)
+# ✏️ РЕДАКТИРОВАНИЕ (перезапуск анкеты)
 @router.callback_query(F.data == "edit")
 async def edit(call: types.CallbackQuery, state: FSMContext):
+    await state.clear()
     await state.set_state(Register.name)
-    await call.message.answer("🔁 Введите имя заново:")
+    await call.message.answer("🔁 Давай заново. Введите имя:")
+
+
+# ❗ СТАРТ РЕГИСТРАЦИИ ИЗ START (важно)
+async def start_registration(message: types.Message, state: FSMContext):
+    await state.set_state(Register.name)
+    await message.answer("👋 Давай познакомимся! Введите имя:")
