@@ -1,7 +1,9 @@
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from bot.config import ADMIN_CHAT_ID, ADMIN_TOPIC_ID
 
 router = Router()
 
@@ -118,23 +120,38 @@ async def no_photo(message: types.Message):
     await message.answer("❌ Отправь именно фото")
 
 
-# ✅ Подтверждение
+# ✅ Подтверждение + ЛОГ
 @router.callback_query(F.data == "confirm")
-async def confirm(call: types.CallbackQuery, state: FSMContext):
+async def confirm(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
+    user = call.from_user
 
     text = (
-        f"🔥 Анкета сохранена:\n\n"
+        f"🔥 Новая анкета\n\n"
         f"👤 {data['name']}, {data['age']}\n"
         f"🌆 {data['city']}\n"
-        f"⚧ {data['gender']} | 🔍 {data['looking']}"
+        f"⚧ {data['gender']}\n"
+        f"🔍 {data['looking']}\n\n"
+        f"🆔 {user.id} | @{user.username or 'no_username'}"
     )
 
-    await call.message.edit_caption(caption=text)
+    # 📩 ЛОГ В АДМИН ТОПИК
+    await bot.send_photo(
+        chat_id=ADMIN_CHAT_ID,
+        message_thread_id=ADMIN_TOPIC_ID,
+        photo=data['photo'],
+        caption=text
+    )
+
+    # ответ пользователю
+    await call.message.edit_caption(
+        caption="✅ Анкета сохранена!"
+    )
+
     await state.clear()
 
 
-# ✏️ Редактирование (перезапуск)
+# ✏️ Редактирование
 @router.callback_query(F.data == "edit")
 async def edit(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(Register.name)
