@@ -33,7 +33,7 @@ async def start_cmd(message: types.Message, state: FSMContext, bot: Bot):
     if not await check_sub(bot, user_id):
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Канал", url=f"https://t.me/{CHANNEL_ID.replace('@','')}")],
-            [InlineKeyboardButton(text="💬 Чат", url="https://t.me/your_chat_link")],
+            [InlineKeyboardButton(text="💬 Чат", url="https://t.me/DatingTravelChat")],
             [InlineKeyboardButton(text="✅ Проверить", callback_data="check_sub")]
         ])
 
