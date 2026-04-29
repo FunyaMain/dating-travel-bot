@@ -8,7 +8,7 @@ from bot.config import ADMIN_CHAT_ID, ADMIN_TOPIC_ID
 router = Router()
 
 
-# 📊 Состояния
+# 📊 СТЕЙТЫ РЕГИСТРАЦИИ
 class Register(StatesGroup):
     name = State()
     age = State()
@@ -18,23 +18,23 @@ class Register(StatesGroup):
     photo = State()
 
 
-# 👤 Имя
+# 👤 ИМЯ
 @router.message(Register.name)
 async def get_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(Register.age)
-    await message.answer("🎂 Возраст:")
+    await message.answer("🎂 Введите возраст:")
 
 
-# 🎂 Возраст
+# 🎂 ВОЗРАСТ
 @router.message(Register.age)
 async def get_age(message: types.Message, state: FSMContext):
     await state.update_data(age=message.text)
     await state.set_state(Register.city)
-    await message.answer("🌆 Город:")
+    await message.answer("🌆 Введите город:")
 
 
-# 🌆 Город
+# 🌆 ГОРОД
 @router.message(Register.city)
 async def get_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text)
@@ -47,10 +47,10 @@ async def get_city(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="🌈 Би", callback_data="g_bi")]
     ])
 
-    await message.answer("⚧ Выбери пол:", reply_markup=kb)
+    await message.answer("⚧ Выберите пол:", reply_markup=kb)
 
 
-# ⚧ Пол
+# ⚧ ПОЛ
 @router.callback_query(F.data.startswith("g_"))
 async def get_gender(call: types.CallbackQuery, state: FSMContext):
     gender_map = {
@@ -73,7 +73,7 @@ async def get_gender(call: types.CallbackQuery, state: FSMContext):
     await call.message.edit_text("🔍 Кого ищешь:", reply_markup=kb)
 
 
-# 🔍 Кого ищет
+# 🔍 КОГО ИЩЕТ
 @router.callback_query(F.data.startswith("l_"))
 async def get_looking(call: types.CallbackQuery, state: FSMContext):
     looking_map = {
@@ -86,10 +86,10 @@ async def get_looking(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(looking=looking_map[call.data])
     await state.set_state(Register.photo)
 
-    await call.message.edit_text("📸 Отправь фото:")
+    await call.message.edit_text("📸 Отправьте фото:")
 
 
-# 📸 Фото
+# 📸 ФОТО
 @router.message(Register.photo, F.photo)
 async def get_photo(message: types.Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
@@ -98,7 +98,7 @@ async def get_photo(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     text = (
-        f"📋 Ваша анкета:\n\n"
+        f"📋 ВАША АНКЕТА\n\n"
         f"👤 Имя: {data['name']}\n"
         f"🎂 Возраст: {data['age']}\n"
         f"🌆 Город: {data['city']}\n"
@@ -111,48 +111,69 @@ async def get_photo(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit")]
     ])
 
-    await message.answer_photo(photo_id, caption=text, reply_markup=kb)
+    await message.answer_photo(photo=photo_id, caption=text, reply_markup=kb)
 
 
-# ❌ если не фото
+# ❌ НЕ ФОТО
 @router.message(Register.photo)
 async def no_photo(message: types.Message):
-    await message.answer("❌ Отправь именно фото")
+    await message.answer("❌ Отправьте именно фото")
 
 
-# ✅ Подтверждение + ЛОГ
+# ✅ ПОДТВЕРЖДЕНИЕ (ФИНАЛ)
 @router.callback_query(F.data == "confirm")
 async def confirm(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     user = call.from_user
 
-    text = (
-        f"🔥 Новая анкета\n\n"
-        f"👤 {data['name']}, {data['age']}\n"
-        f"🌆 {data['city']}\n"
-        f"⚧ {data['gender']}\n"
-        f"🔍 {data['looking']}\n\n"
-        f"🆔 {user.id} | @{user.username or 'no_username'}"
+    final_text = (
+        f"🔥 ГОТОВАЯ АНКЕТА\n\n"
+        f"👤 Имя: {data['name']}\n"
+        f"🎂 Возраст: {data['age']}\n"
+        f"🌆 Город: {data['city']}\n"
+        f"⚧ Пол: {data['gender']}\n"
+        f"🔍 Ищу: {data['looking']}\n\n"
+        f"🆔 @{user.username or 'no_username'} | {user.id}"
     )
 
-    # 📩 ЛОГ В АДМИН ТОПИК
-    await bot.send_photo(
-        chat_id=ADMIN_CHAT_ID,
-        message_thread_id=ADMIN_TOPIC_ID,
-        photo=data['photo'],
-        caption=text
-    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_profile")],
+        [InlineKeyboardButton(text="❌ Удалить", callback_data="delete_profile")],
+        [InlineKeyboardButton(text="🔕 Отключить", callback_data="disable_profile")]
+    ])
 
-    # ответ пользователю
-    await call.message.edit_caption(
-        caption="✅ Анкета сохранена!"
-    )
+    # 🧹 удалить старое сообщение
+    try:
+        await call.message.delete()
+    except:
+        pass
 
+    # 📩 отправить чистую анкету пользователю
+    if data.get("photo"):
+        await call.message.answer_photo(
+            photo=data["photo"],
+            caption=final_text,
+            reply_markup=keyboard
+        )
+    else:
+        await call.message.answer(final_text, reply_markup=keyboard)
+
+    # 🛠 лог в админ топик
+    try:
+        await bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            message_thread_id=ADMIN_TOPIC_ID,
+            text=final_text
+        )
+    except Exception as e:
+        print("ADMIN LOG ERROR:", e)
+
+    # 🧠 очистка FSM
     await state.clear()
 
 
-# ✏️ Редактирование
+# ✏️ РЕДАКТИРОВАНИЕ
 @router.callback_query(F.data == "edit")
 async def edit(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(Register.name)
-    await call.message.answer("🔁 Введи имя заново:")
+    await call.message.answer("🔁 Начнём заново. Введите имя:")
