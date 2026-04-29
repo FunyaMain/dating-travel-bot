@@ -1,11 +1,14 @@
 import asyncio
-from aiogram import Bot, Dispatcher
-from loader import bot, dp
-from db.connection import init_db
-import handlers  # noqa
+from bot.loader import dp, bot
+from bot.handlers import start, profile, anon, admin, moderator
 
 async def main():
-    await init_db()
+    dp.include_router(start.router)
+    dp.include_router(profile.router)
+    dp.include_router(anon.router)
+    dp.include_router(admin.router)
+    dp.include_router(moderator.router)
+
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
