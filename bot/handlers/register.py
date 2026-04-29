@@ -98,7 +98,6 @@ async def get_photo(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     text = (
-        f"📋 ВАША АНКЕТА\n\n"
         f"👤 Имя: {data['name']}\n"
         f"🎂 Возраст: {data['age']}\n"
         f"🌆 Город: {data['city']}\n"
@@ -117,17 +116,16 @@ async def get_photo(message: types.Message, state: FSMContext):
 # ❌ НЕ ФОТО
 @router.message(Register.photo)
 async def no_photo(message: types.Message):
-    await message.answer("❌ Отправьте именно фото")
+    await message.answer("❌ Отправьте фото")
 
 
-# ✅ ПОДТВЕРЖДЕНИЕ (ФИНАЛ)
+# ✅ ПОДТВЕРЖДЕНИЕ
 @router.callback_query(F.data == "confirm")
 async def confirm(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     user = call.from_user
 
-    final_text = (
-        f"🔥 ГОТОВАЯ АНКЕТА\n\n"
+    text = (
         f"👤 Имя: {data['name']}\n"
         f"🎂 Возраст: {data['age']}\n"
         f"🌆 Город: {data['city']}\n"
@@ -137,43 +135,66 @@ async def confirm(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_profile")],
-        [InlineKeyboardButton(text="❌ Удалить", callback_data="delete_profile")],
-        [InlineKeyboardButton(text="🔕 Отключить", callback_data="disable_profile")]
+        [InlineKeyboardButton(text="⚙️ Настройки анкеты", callback_data="settings")]
     ])
 
-    # 🧹 удалить старое сообщение
     try:
         await call.message.delete()
     except:
         pass
 
-    # 📩 отправить чистую анкету пользователю
     if data.get("photo"):
         await call.message.answer_photo(
             photo=data["photo"],
-            caption=final_text,
+            caption=text,
             reply_markup=keyboard
         )
     else:
-        await call.message.answer(final_text, reply_markup=keyboard)
+        await call.message.answer(text, reply_markup=keyboard)
 
-    # 🛠 лог в админ топик
     try:
-        await bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            message_thread_id=ADMIN_TOPIC_ID,
-            text=final_text
-        )
+        if ADMIN_TOPIC_ID:
+            await bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                message_thread_id=ADMIN_TOPIC_ID,
+                text=text
+            )
+        else:
+            await bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=text
+            )
     except Exception as e:
         print("ADMIN LOG ERROR:", e)
 
-    # 🧠 очистка FSM
     await state.clear()
 
 
-# ✏️ РЕДАКТИРОВАНИЕ
+# ⚙️ НАСТРОЙКИ
+@router.callback_query(F.data == "settings")
+async def settings(call: types.CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_profile")],
+        [InlineKeyboardButton(text="❌ Удалить", callback_data="delete_profile")],
+        [InlineKeyboardButton(text="🔕 Отключить", callback_data="disable_profile")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_menu")]
+    ])
+
+    await call.message.edit_reply_markup(reply_markup=kb)
+
+
+# 🔙 НАЗАД
+@router.callback_query(F.data == "back_menu")
+async def back_menu(call: types.CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚙️ Настройки анкеты", callback_data="settings")]
+    ])
+
+    await call.message.edit_reply_markup(reply_markup=kb)
+
+
+# ✏️ РЕДАКТИРОВАНИЕ (перезапуск)
 @router.callback_query(F.data == "edit")
 async def edit(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(Register.name)
-    await call.message.answer("🔁 Начнём заново. Введите имя:")
+    await call.message.answer("🔁 Введите имя заново:")
